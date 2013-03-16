@@ -2,6 +2,7 @@ package controllers
 
 import play.api._
 import libs.concurrent.Akka
+import libs.iteratee.Iteratee
 import libs.json._
 import play.api.mvc._
 import scala.concurrent.future
@@ -29,18 +30,23 @@ object Application extends Controller {
 
   implicit val akkaTimeout: Timeout = 5 seconds
 
-  def index = Action {
+  def index = Action { implicit request =>
     Ok(views.html.index("Your new application is ready."))
   }
 
-  def giveMeState = Action { Async {
+  def giveMeState = WebSocket.async[JsValue] { request =>
 
     val actor = Akka.system.actorFor("user/stateActor")
 
-    (actor ? GiveMeState).mapTo[HereYouGo].map { hereYouGo =>
-      Ok(Json.toJson(hereYouGo.commands))
+    (actor ? ListenForCommands).mapTo[Connected].map { connected =>
+      val jsonEnumerator = connected.enumerator.map(command =>
+        Json.toJson(command)
+      )
+
+      val iteratee = Iteratee.ignore[JsValue]
+      (iteratee, jsonEnumerator)
     }
-  }}
+  }
 
 
 

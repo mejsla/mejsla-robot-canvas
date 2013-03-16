@@ -1,6 +1,7 @@
 package controllers
 
 import akka.actor.Actor
+import play.api.libs.iteratee.{Enumerator, Concurrent}
 
 
 sealed trait Command
@@ -16,20 +17,22 @@ class IndataActor {
 }
 
 
-sealed trait InfoRequest
 case object GiveMeState
 case class HereYouGo(commands: Seq[Command])
-
+case object ListenForCommands
+case class Connected(enumerator: Enumerator[Command])
 
 class StateActor extends Actor {
 
   var commands: Seq[Command] = Seq(Start(10), Right, Forward, Right, Left)
 
+  val (commandEnumerator, commandChannel) = Concurrent.broadcast[Command]
+
   def receive = {
 
     case s :Start =>
       commands = Seq(s)
-      informInterestedPartiesAboutReset(s.tick)
+      informInterestedParties(s)
 
     case otherCommand: Command =>
       commands = commands :+ otherCommand
@@ -38,14 +41,16 @@ class StateActor extends Actor {
     case GiveMeState =>
       sender ! HereYouGo(commands)
 
-  }
+    case ListenForCommands =>
+      sender ! Connected(commandEnumerator)
+      // commands up till now
+      commands.foreach(informInterestedParties(_))
 
-  def informInterestedPartiesAboutReset(tick: Int) {
 
   }
 
   def informInterestedParties(command: Command) {
-    // no-one is interested, duuh
+    commandChannel.push(command)
   }
 
   override def preStart() {
