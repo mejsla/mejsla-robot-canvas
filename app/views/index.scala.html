@@ -5,83 +5,115 @@
 
     <h1>Wee!</h1>
 
-    <div id='canvasBlock'></div>
+    <canvas id='canvasBlock' width="1200" height="1000"></canvas>
 
     <script src="@routes.Assets.at("javascripts/kinetic-v4.3.3.min.js")" type="text/javascript"></script>
 
     <script type="text/javascript" charset="utf-8">
 
-        var stage = new Kinetic.Stage({
-            container: 'canvasBlock',
-            width: 600,
-            height: 600
-        });
 
-        var tick = 40;
+
+        var tick = 4;
         var v = 90;
         var angleInRadians = 0;
 
-        var turnRatio = 30;
+        var turnRatio = 5;
 
-        var x1 = 200;
-        var y1 = 200;
+        var x1 = 600;
+        var y1 = 500;
         var x2 = x1;
         var y2 = y1;
 
+        var movementFactor = 1;
 
         var WS = window['MozWebSocket'] ? MozWebSocket : WebSocket;
         var websocket = new WS("@routes.Application.giveMeState.webSocketURL()");
 
+        var canvas = document.getElementById("canvasBlock");
+        var canvasContext = canvas.getContext("2d");
+        canvasContext.strokeStyle = "#000";
+
         websocket.onmessage = function(event) {
             var item = JSON.parse(event.data)
 
-
             switch(item.command) {
                 case "start":
-                // layer.clear();
+                    stage.clear();
                 break;
 
                 case "move":
 
-                switch (item.how) {
+                    switch (item.left + item.right) {
+                        case "forwardnone":
+                            v = v - turnRatio;
+                            movementFactor = 1;
+                        break;
 
-                    case "left":
-                    v = v - turnRatio;
-                    break;
+                        case "noneforward":
+                            v = v + turnRatio;
+                            movementFactor = 1;
+                        break;
 
-                    case "right":
-                    v = v + turnRatio;
-                    break;
+                        case "forwardforward":
+                            v = v;
+                            movementFactor = 1;
+                        break;
 
-                    case "forward":
-                    break;
-                }
+                        case "backwardnone":
+                            v = v - turnRatio;
+                            movementFactor = -1;
+                        break;
+
+                        case "nonebackward":
+                            v = v + turnRatio;
+                            movementFactor = -1;
+                        break;
+
+                        case "backwardbackward":
+                            v = v;
+                            movementFactor = -1;
+                        break;
+
+                        case "forwardnone":
+                            v = v - (turnRatio * 2);
+                            movementFactor = 0;
+                        break;
+
+                        case "noneforward":
+                            v = v + (turnRatio * 2);
+                            movementFactor = 0;
+                        break;
+                    }
+
+
+                    // normalize angle
+                    if (v > 360) v = v - 360;
+                    if (v < 0) v = v + 360;
+
+                    angleInRadians = (v * (Math.PI / 180));
+
+                    // cos something
+                    y2 = y1 - (Math.sin(angleInRadians) * tick) * movementFactor;
+                    x2 = x1 + (Math.cos(angleInRadians) * tick) * movementFactor;
+
+                    if (x1 !== x2 && y1 != y2) {
+
+                        canvasContext.moveTo(x1, y1);
+                        canvasContext.lineTo(x2, y2);
+                        canvasContext.stroke();
+
+                        // this is where we are in the next iteration
+                        x1 = x2;
+                        y1 = y2;
+                    }
+
+
 
                 break;
             }
-            if (v > 360) v = v - 360;
-            if (v < 0) v = v + 360;
 
-            angleInRadians = (v * (Math.PI / 180));
 
-            // cos something
-            y2 = y1 - Math.sin(angleInRadians) * tick;
-            x2 = x1 + Math.cos(angleInRadians) * tick;
 
-            console.log("command: " + item.command + ", v: " + v + ", from: (" + x1 + ", " + y1 + "), to: (" + x2 + ", " + y2 + ")")
-            var layer = new Kinetic.Layer();
-            layer.add(new Kinetic.Line({
-                points: [[x1, y1], [x2, y2]],
-                stroke: 'black',
-                strokeWidth: 2
-            }));
-
-            // add the layer to the stage
-            stage.add(layer);
-
-            // this is where we are in the next iteration
-            x1 = x2;
-            y1 = y2;
         };
     </script>
 

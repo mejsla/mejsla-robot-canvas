@@ -1,56 +1,41 @@
 package controllers
 
 import akka.actor.Actor
-import play.api.libs.iteratee.{Enumerator, Concurrent}
+import play.api.libs.iteratee.Concurrent.Channel
+import play.api.libs.iteratee.{Concurrent, Enumerator}
 
+
+sealed trait Direction
+case object None extends Direction
+case object Forward extends Direction
+case object Backward extends Direction
 
 sealed trait Command
 case class Start(tick: Int) extends Command
-case object Left extends Command
-case object Right extends Command
-case object Forward extends Command
+case class Move(left: Direction, right: Direction) extends Command
 
-class IndataActor {
-
-   // TODO listen to socket or whatever
-
-}
-
-
-case object GiveMeState
-case class HereYouGo(commands: Seq[Command])
-case object ListenForCommands
-case class Connected(enumerator: Enumerator[Command])
+case class ListenForCommands(channel: Channel[Command])
 
 class StateActor extends Actor {
 
-  var commands: Seq[Command] = Seq(Start(10), Right, Forward, Right, Left)
 
-  val (commandEnumerator, commandChannel) = Concurrent.broadcast[Command]
+  var listeners: Seq[Channel[Command]] = Seq()
 
   def receive = {
 
     case s :Start =>
-      commands = Seq(s)
       informInterestedParties(s)
 
     case otherCommand: Command =>
-      commands = commands :+ otherCommand
       informInterestedParties(otherCommand)
 
-    case GiveMeState =>
-      sender ! HereYouGo(commands)
-
-    case ListenForCommands =>
-      sender ! Connected(commandEnumerator)
-      // commands up till now
-      commands.foreach(informInterestedParties(_))
-
+    case ListenForCommands(channel) =>
+      listeners = listeners :+ channel
 
   }
 
   def informInterestedParties(command: Command) {
-    commandChannel.push(command)
+    listeners.foreach(_.push(command))
   }
 
   override def preStart() {

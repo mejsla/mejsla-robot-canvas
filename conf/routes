@@ -6,5 +6,8 @@
 GET     /                           controllers.Application.index
 GET     /giveMeState                controllers.Application.giveMeState
 
+GET     /api/start                  controllers.Application.start(ticks: Int)
+GET     /api/move                   controllers.Application.move(left: Option[String], right: Option[String])
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)
